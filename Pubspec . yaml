@@ -1,0 +1,16 @@
+name: torino
+description: Torino private chat
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  supabase_flutter: ^2.8.0
+  local_auth: ^2.3.0
+
+flutter:
+  uses-material-design: true
