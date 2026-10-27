@@ -1,3 +1,4 @@
+
 name: Build APK
 
 on:
@@ -8,15 +9,19 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - uses: subosito/flutter-action@v2
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.35.7"
           channel: stable
@@ -27,44 +32,51 @@ jobs:
       - name: Add packages
         run: |
           flutter pub add supabase_flutter:^2.8.0 local_auth:^2.3.0
-          cat pubspec.yaml
 
-      - name: Patch Android (internet, biometric, screenshot block)
+      - name: Patch Android manifest
         run: |
-          rm -rf test
           MANIFEST=android/app/src/main/AndroidManifest.xml
-          sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>\n    <application#' $MANIFEST
-          sed -i 's#android:label="[^"]*"#android:label="Torino"#' $MANIFEST
-          F=$(find android/app/src/main/kotlin -name MainActivity.kt)
-          PKG=$(grep '^package' $F)
-          cat > $F <<EOF
+
+          grep -q 'android.permission.INTERNET' "$MANIFEST" || \
+            sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' "$MANIFEST"
+
+          grep -q 'android.permission.USE_BIOMETRIC' "$MANIFEST" || \
+            sed -i 's#<application#<uses-permission android:name="android.permission.USE_BIOMETRIC"/>\n    <application#' "$MANIFEST"
+
+          sed -i 's#android:label="[^"]*"#android:label="Torino"#' "$MANIFEST"
+
+      - name: Configure MainActivity
+        run: |
+          F=$(find android/app/src/main/kotlin -name MainActivity.kt -print -quit)
+
+          if [ -z "$F" ]; then
+            echo "MainActivity.kt not found"
+            exit 1
+          fi
+
+          PKG=$(grep '^package ' "$F" | head -n 1)
+
+          cat > "$F" <<EOF
           $PKG
 
-          import android.os.Bundle
-          import android.view.WindowManager
           import io.flutter.embedding.android.FlutterFragmentActivity
 
-          class MainActivity : FlutterFragmentActivity() {
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  window.setFlags(
-                      WindowManager.LayoutParams.FLAG_SECURE,
-                      WindowManager.LayoutParams.FLAG_SECURE
-                  )
-              }
-          }
+          class MainActivity : FlutterFragmentActivity()
           EOF
 
       - name: Get packages
         run: flutter pub get
 
       - name: Build release APK
-        run: >
-          flutter build apk --release
-          --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-          --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          flutter build apk --release \
+            --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+            --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: torino-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          
