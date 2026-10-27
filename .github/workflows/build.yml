@@ -16,10 +16,12 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: subosito/flutter-action@v2
+   - uses: subosito/flutter-action@v2
         with:
+          flutter-version: "3.35.7"
           channel: stable
-
+        
+          
       - name: Generate Android project
         run: flutter create --org com.torino --project-name torino --platforms android .
 
@@ -48,8 +50,8 @@ jobs:
               }
           }
           EOF
-
-      - run: flutter pub get
+      - name: Get packages
+        run: flutter pub get --verbose
 
       - name: Build release APK
         run: >
