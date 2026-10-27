@@ -338,19 +338,37 @@ class _ChatScreenState extends State<ChatScreen> {
         .order('created_at', ascending: false);
   }
 
-  Future<void> send() async {
-    final text = input.text.trim();
-    if (text.isEmpty) return;
+  
+Future<void> send() async {
+  final text = input.text.trim();
+  if (text.isEmpty) return;
+
+  final user = sb.auth.currentUser;
+  if (user == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('আবার Login করুন')),
+    );
+    return;
+  }
+
+  try {
+    await sb.from('messages').insert({
+      'body': text,
+      'sender_id': user.id,
+    });
+
     input.clear();
-    try {
-      await sb.from('messages').insert({'body': text});
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('পাঠানো যায়নি')));
-      }
+  } catch (e) {
+    debugPrint('MESSAGE SEND ERROR: $e');
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('মেসেজ পাঠানো যায়নি: $e')),
+      );
     }
   }
+}
+  
 
   Future<void> confirmDelete(String id) async {
     final yes = await showDialog<bool>(
